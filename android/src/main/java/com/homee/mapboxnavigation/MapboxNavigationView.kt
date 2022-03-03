@@ -10,16 +10,13 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.core.view.forEach
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.uimanager.ThemedReactContext
 import com.mapbox.api.directions.v5.models.DirectionsRoute
 import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.bindgen.Expected
 import com.mapbox.geojson.Point
-import com.mapbox.maps.EdgeInsets
-import com.mapbox.maps.MapView
-import com.mapbox.maps.MapboxMap
-import com.mapbox.maps.Style
 import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.locationcomponent.location
@@ -78,6 +75,7 @@ import com.mapbox.navigation.ui.voice.model.SpeechValue
 import com.mapbox.navigation.ui.voice.model.SpeechVolume
 import java.util.Locale
 import com.facebook.react.uimanager.events.RCTEventEmitter
+import com.mapbox.maps.*
 
 class MapboxNavigationView(private val context: ThemedReactContext, private val accessToken: String?) :
     FrameLayout(context.baseContext) {
@@ -651,12 +649,14 @@ class MapboxNavigationView(private val context: ThemedReactContext, private val 
 
     private fun findRoute(origin: Point, destination: Point) {
         try {
+            var waypoints = getWaypointIndicesList(listOf(origin, destination))
             mapboxNavigation.requestRoutes(
                 RouteOptions.builder()
                     .applyDefaultNavigationOptions()
                     .applyLanguageAndVoiceUnitOptions(context)
                     .coordinatesList(listOf(origin, destination))
                     .profile(DirectionsCriteria.PROFILE_DRIVING)
+                    .waypointIndicesList(waypoints)
                     .steps(true)
                     .build(),
                 object : RouterCallback {
@@ -683,6 +683,15 @@ class MapboxNavigationView(private val context: ThemedReactContext, private val 
             sendErrorToReact(ex.toString())
         }
 
+    }
+
+    private fun getWaypointIndicesList(
+            coordinates: List<Point>
+    ): List<Int?> {
+        val waypointIndicesList = arrayListOf<Int?>()
+        waypointIndicesList.add(0)
+        waypointIndicesList.add(coordinates.lastIndex)
+        return waypointIndicesList
     }
 
     private fun sendErrorToReact(error: String?) {

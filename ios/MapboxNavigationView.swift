@@ -133,4 +133,53 @@ class MapboxNavigationView: UIView, NavigationViewControllerDelegate {
     onArrive?(["message": ""]);
     return true;
   }
+
+  func navigationViewController(_ navigationViewController: NavigationViewController, shouldRerouteFrom location: CLLocation) -> Bool {
+    // Here, we are simulating a custom server.
+    let routeOptions = NavigationRouteOptions(waypoints: [Waypoint(location: location), self.routeOptions.waypoints.last!])
+    Directions.shared.calculate(routeOptions) { [weak self] (_, result) in
+        switch result {
+        case .failure(let error):
+            print(error.localizedDescription)
+        case .success(let response):
+            guard let routeShape = response.routes?.first?.shape else {
+                return
+            }
+            
+            //
+            // ❗️IMPORTANT❗️
+            // Use `Directions.calculateRoutes(matching:completionHandler:)` for navigating on a map matching response.
+            //
+            let matchOptions = NavigationMatchOptions(coordinates: routeShape.coordinates)
+            
+            // By default, each waypoint separates two legs, so the user stops at each waypoint.
+            // We want the user to navigate from the first coordinate to the last coordinate without any stops in between.
+            // You can specify more intermediate waypoints here if you’d like.
+            for waypoint in matchOptions.waypoints.dropFirst().dropLast() {
+                waypoint.separatesLegs = false
+            }
+            
+            Directions.shared.calculateRoutes(matching: matchOptions) { [weak self] (_, result) in
+                switch result {
+                case .failure(let error):
+                    print(error.localizedDescription)
+                case .success(let response):
+                    guard !(response.routes?.isEmpty ?? true) else {
+                        return
+                    }
+                    
+                    // Convert matchOptions to `RouteOptions`
+                    let routeOptions = RouteOptions(matchOptions: matchOptions)
+                    
+                    // Set the route
+                    self?.navigationViewController?.navigationService.router.updateRoute(with: .init(routeResponse: response, routeIndex: 0),
+                                                                                          routeOptions: routeOptions,
+                                                                                          completion: nil)
+                }
+            }
+        }
+    }
+    
+    return true
+  }
 }

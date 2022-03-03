@@ -69,6 +69,7 @@ class MapboxNavigationManager(var mCallerContext: ReactApplicationContext) : Sim
             view.setDestination(null)
             return
         }
+
         view.setDestination(Point.fromLngLat(sources.getDouble(0), sources.getDouble(1)))
     }
 

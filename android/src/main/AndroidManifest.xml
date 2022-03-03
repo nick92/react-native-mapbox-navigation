@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.homee.mapboxnavigation">
-
+    <meta-data android:name="MAPBOX_ACCESS_TOKEN"
+        android:value="pk.eyJ1Ijoibmljazk5MiIsImEiOiJja3pvYXZnbmQwYnA3Mm9xbWd1Yng4Nm5yIn0.jG5ewvKzX8Hkv93h_G3oIQ" />
 </manifest>
