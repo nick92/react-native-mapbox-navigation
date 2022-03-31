@@ -86,6 +86,7 @@ class MapboxNavigationView(private val context: ThemedReactContext, private val 
 
     private var origin: Point? = null
     private var destination: Point? = null
+    private var wayPoints = arrayListOf<Point?>()
     private var shouldSimulateRoute = false
     private var showsEndOfRouteFeedback = false
     /**
@@ -557,12 +558,12 @@ class MapboxNavigationView(private val context: ThemedReactContext, private val 
         speechApi = MapboxSpeechApi(
             context,
             accessToken,
-            Locale.US.language
+            Locale.UK.language
         )
         voiceInstructionsPlayer = MapboxVoiceInstructionsPlayer(
             context,
             accessToken,
-            Locale.US.language
+            Locale.UK.language
         )
 
         // initialize route line, the withRouteLineBelowLayerId is specified to place
@@ -582,7 +583,7 @@ class MapboxNavigationView(private val context: ThemedReactContext, private val 
         setCameraPositionToOrigin()
         // load map style
         mapboxMap.loadStyleUri(
-            Style.MAPBOX_STREETS
+            Style.TRAFFIC_NIGHT
         )
 
         // initialize view interactions
@@ -625,7 +626,7 @@ class MapboxNavigationView(private val context: ThemedReactContext, private val 
         mapboxNavigation.registerVoiceInstructionsObserver(voiceInstructionsObserver)
         mapboxNavigation.registerRouteProgressObserver(replayProgressObserver)
 
-        this.origin?.let { this.destination?.let { it1 -> this.findRoute(it, it1) } }
+        this.origin?.let { it -> this.destination?.let { it1 -> this.wayPoints?.let { way -> this.findRoute(it, it1, way) } } }
     }
 
     override fun onDetachedFromWindow() {
@@ -647,16 +648,25 @@ class MapboxNavigationView(private val context: ThemedReactContext, private val 
         voiceInstructionsPlayer.shutdown()
     }
 
-    private fun findRoute(origin: Point, destination: Point) {
+    private fun findRoute(origin: Point, destination: Point, wayPoints: ArrayList<Point?>) {
         try {
-            var waypoints = getWaypointIndicesList(listOf(origin, destination))
+            var points = arrayListOf<Point?>()
+
+            points.add(origin)
+
+            wayPoints.forEach {
+                points.add(it)
+            }
+
+            points.add(destination)
+
             mapboxNavigation.requestRoutes(
                 RouteOptions.builder()
                     .applyDefaultNavigationOptions()
                     .applyLanguageAndVoiceUnitOptions(context)
-                    .coordinatesList(listOf(origin, destination))
+                    .coordinatesList(points)
                     .profile(DirectionsCriteria.PROFILE_DRIVING)
-                    .waypointIndicesList(waypoints)
+                    .waypointIndicesList(listOf(0, points.lastIndex))
                     .steps(true)
                     .build(),
                 object : RouterCallback {
@@ -760,6 +770,10 @@ class MapboxNavigationView(private val context: ThemedReactContext, private val 
 
     fun setDestination(destination: Point?) {
         this.destination = destination
+    }
+
+    fun setWaypoints(wayPoints: ArrayList<Point?>) {
+        this.wayPoints = wayPoints
     }
 
     fun setShouldSimulateRoute(shouldSimulateRoute: Boolean) {
