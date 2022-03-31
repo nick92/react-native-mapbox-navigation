@@ -20,17 +20,15 @@ class MapboxNavigationView: UIView, NavigationViewControllerDelegate {
   weak var navViewController: NavigationViewController?
   var embedded: Bool
   var embedding: Bool
+  var options: NavigationRouteOptions
   
-  @objc var origin: NSArray = [] {
-    didSet { setNeedsLayout() }
-  }
-  
-  @objc var destination: NSArray = [] {
+  @objc var waypoints: NSArray = [] {
     didSet { setNeedsLayout() }
   }
   
   @objc var shouldSimulateRoute: Bool = false
   @objc var showsEndOfRouteFeedback: Bool = false
+  @objc var showsRouteFeedback: Bool = false
   @objc var hideStatusView: Bool = false
   @objc var mute: Bool = false
   
@@ -43,6 +41,7 @@ class MapboxNavigationView: UIView, NavigationViewControllerDelegate {
   override init(frame: CGRect) {
     self.embedded = false
     self.embedding = false
+    self.options = NavigationRouteOptions(coordinates: [])
     super.init(frame: frame)
   }
   
@@ -67,15 +66,26 @@ class MapboxNavigationView: UIView, NavigationViewControllerDelegate {
   }
   
   private func embed() {
-    guard origin.count == 2 && destination.count == 2 else { return }
+    guard waypoints.count > 0 else { return }
     
     embedding = true
-
-    let originWaypoint = Waypoint(coordinate: CLLocationCoordinate2D(latitude: origin[1] as! CLLocationDegrees, longitude: origin[0] as! CLLocationDegrees))
-    let destinationWaypoint = Waypoint(coordinate: CLLocationCoordinate2D(latitude: destination[1] as! CLLocationDegrees, longitude: destination[0] as! CLLocationDegrees))
-
-    // let options = NavigationRouteOptions(waypoints: [originWaypoint, destinationWaypoint])
-    let options = NavigationRouteOptions(waypoints: [originWaypoint, destinationWaypoint], profileIdentifier: .automobileAvoidingTraffic)
+    
+    var points: [Waypoint] = []
+    var i: Int = 0;
+    
+    for waypoint in self.waypoints {
+        let way = waypoint as! NSArray
+        let point = Waypoint(coordinate: CLLocationCoordinate2D(latitude: way[1] as! CLLocationDegrees, longitude: way[0] as! CLLocationDegrees))
+        
+        if(i > 0 && i != waypoints.count-1){
+            point.separatesLegs = false
+        }
+        
+        points.append(point)
+        i+=1
+    }
+    
+    let options = NavigationRouteOptions(waypoints: points, profileIdentifier: .automobileAvoidingTraffic)
 
     Directions.shared.calculate(options) { [weak self] (_, result) in
       guard let strongSelf = self, let parentVC = strongSelf.parentViewController else {
@@ -84,6 +94,7 @@ class MapboxNavigationView: UIView, NavigationViewControllerDelegate {
       
       switch result {
         case .failure(let error):
+            print("error: \(error.localizedDescription)")
           strongSelf.onError!(["message": error.localizedDescription])
         case .success(let response):
           guard let weakSelf = self else {
@@ -92,16 +103,15 @@ class MapboxNavigationView: UIView, NavigationViewControllerDelegate {
           
           let navigationService = MapboxNavigationService(routeResponse: response, routeIndex: 0, routeOptions: options, simulating: strongSelf.shouldSimulateRoute ? .always : .never)
           
-          let navigationOptions = NavigationOptions(navigationService: navigationService)
+          let navigationOptions = NavigationOptions(styles: [CustomStyle()], navigationService: navigationService)
           let vc = NavigationViewController(for: response, routeIndex: 0, routeOptions: options, navigationOptions: navigationOptions)
-
+          
+          vc.showsReportFeedback = strongSelf.showsRouteFeedback
           vc.showsEndOfRouteFeedback = strongSelf.showsEndOfRouteFeedback
           StatusView.appearance().isHidden = strongSelf.hideStatusView
-
-          NavigationSettings.shared.voiceMuted = strongSelf.mute;
-          
+          NavigationSettings.shared.voiceMuted = strongSelf.mute
           vc.delegate = strongSelf
-        
+                  
           parentVC.addChild(vc)
           strongSelf.addSubview(vc.view)
           vc.view.frame = strongSelf.bounds
@@ -134,52 +144,18 @@ class MapboxNavigationView: UIView, NavigationViewControllerDelegate {
     return true;
   }
 
-  func navigationViewController(_ navigationViewController: NavigationViewController, shouldRerouteFrom location: CLLocation) -> Bool {
-    // Here, we are simulating a custom server.
-    let routeOptions = NavigationRouteOptions(waypoints: [Waypoint(location: location), self.routeOptions.waypoints.last!])
-    Directions.shared.calculate(routeOptions) { [weak self] (_, result) in
-        switch result {
-        case .failure(let error):
-            print(error.localizedDescription)
-        case .success(let response):
-            guard let routeShape = response.routes?.first?.shape else {
-                return
-            }
-            
-            //
-            // ❗️IMPORTANT❗️
-            // Use `Directions.calculateRoutes(matching:completionHandler:)` for navigating on a map matching response.
-            //
-            let matchOptions = NavigationMatchOptions(coordinates: routeShape.coordinates)
-            
-            // By default, each waypoint separates two legs, so the user stops at each waypoint.
-            // We want the user to navigate from the first coordinate to the last coordinate without any stops in between.
-            // You can specify more intermediate waypoints here if you’d like.
-            for waypoint in matchOptions.waypoints.dropFirst().dropLast() {
-                waypoint.separatesLegs = false
-            }
-            
-            Directions.shared.calculateRoutes(matching: matchOptions) { [weak self] (_, result) in
-                switch result {
-                case .failure(let error):
-                    print(error.localizedDescription)
-                case .success(let response):
-                    guard !(response.routes?.isEmpty ?? true) else {
-                        return
-                    }
-                    
-                    // Convert matchOptions to `RouteOptions`
-                    let routeOptions = RouteOptions(matchOptions: matchOptions)
-                    
-                    // Set the route
-                    self?.navigationViewController?.navigationService.router.updateRoute(with: .init(routeResponse: response, routeIndex: 0),
-                                                                                          routeOptions: routeOptions,
-                                                                                          completion: nil)
-                }
-            }
-        }
+}
+
+class CustomStyle: DayStyle {
+    required init() {
+        super.init()
+        mapStyleURL = URL(string: "mapbox://styles/mapbox/outdoors-v11")!
+        styleType = .night
     }
-    
-    return true
-  }
+
+    override func apply() {
+        super.apply()
+//        BottomBannerView.appearance().backgroundColor = .darkGray
+//        TopBannerView.appearance().backgroundColor = .darkGray
+    }
 }
