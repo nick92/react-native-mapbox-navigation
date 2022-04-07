@@ -149,13 +149,20 @@ class MapboxNavigationView: UIView, NavigationViewControllerDelegate {
 class CustomStyle: DayStyle {
     required init() {
         super.init()
-        mapStyleURL = URL(string: "mapbox://styles/mapbox/outdoors-v11")!
+        mapStyleURL = URL(string: "mapbox://styles/mapbox/navigation-day-v1")!
         styleType = .night
+        fontFamily = "Ubuntu"
     }
 
     override func apply() {
         super.apply()
-//        BottomBannerView.appearance().backgroundColor = .darkGray
-//        TopBannerView.appearance().backgroundColor = .darkGray
+        BottomBannerView.appearance().backgroundColor = .darkGray
+        BottomBannerView.appearance().textColor = .white
+        BottomBannerView.appearance().tintColor = .white
+
+        
+        TopBannerView.appearance().backgroundColor = .darkGray
+        TopBannerView.appearance().textColor = .white
+        TopBannerView.appearance().tintColor = .white
     }
 }
